@@ -1,0 +1,106 @@
+version: "3.9"
+
+services:
+  # ─── Redis (job queue backend) ───────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: vp_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ─── Ollama (local LLM server) ───────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: vp_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ─── API Server ──────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vp_api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+      - ./models:/app/models
+    environment:
+      - WHISPER_MODEL=${WHISPER_MODEL:-large-v3}
+      - WHISPER_DEVICE=${WHISPER_DEVICE:-cuda}
+      - WHISPER_COMPUTE_TYPE=${WHISPER_COMPUTE_TYPE:-float16}
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:32b}
+      - LLM_LANGUAGE=${LLM_LANGUAGE:-fr}
+      - OCR_ENABLED=${OCR_ENABLED:-true}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    command: uvicorn api.server:app --host 0.0.0.0 --port 8000 --workers 1
+
+  # ─── Celery Worker (for heavy batch jobs) ────────────────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vp_worker
+    volumes:
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+      - ./models:/app/models
+    environment:
+      - WHISPER_MODEL=${WHISPER_MODEL:-large-v3}
+      - WHISPER_DEVICE=${WHISPER_DEVICE:-cuda}
+      - WHISPER_COMPUTE_TYPE=${WHISPER_COMPUTE_TYPE:-float16}
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:32b}
+      - LLM_LANGUAGE=${LLM_LANGUAGE:-fr}
+      - OCR_ENABLED=${OCR_ENABLED:-true}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    command: celery -A api.worker worker --loglevel=info --concurrency=1
+
+volumes:
+  ollama_models:

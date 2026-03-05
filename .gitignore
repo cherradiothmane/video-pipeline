@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Data
+uploads/
+outputs/
+models/
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.webm
+
+# Env
+.env
+
+# Node
+ui/node_modules/
+ui/dist/
+
+# Docker
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
