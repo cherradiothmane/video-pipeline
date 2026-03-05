@@ -250,3 +250,4 @@ pytest tests/test_pipeline.py -v
 **`Ollama timeout`** : Le modèle 32B peut prendre 1-2 min à charger. Augmenter le timeout ou utiliser un modèle plus léger.
 
 **OCR lent** : Réduire `OCR_FPS_SAMPLE` à `0.5` ou `0.25` pour analyser moins de frames.
+"# video-pipeline" 
