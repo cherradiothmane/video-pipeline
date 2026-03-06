@@ -10,6 +10,25 @@ from typing import Callable, Optional
 logger = logging.getLogger(__name__)
 
 
+def _convert_numpy(obj):
+    """Recursively convert numpy int64/float32 to native Python types."""
+    try:
+        import numpy as np
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+    except ImportError:
+        pass
+    if isinstance(obj, list):
+        return [_convert_numpy(i) for i in obj]
+    if isinstance(obj, dict):
+        return {k: _convert_numpy(v) for k, v in obj.items()}
+    return obj
+
+
 @dataclass
 class OCREntry:
     timecode: float          # seconds
@@ -20,6 +39,8 @@ class OCREntry:
     def __post_init__(self):
         # Clean up text
         self.text = " ".join(self.text.split())
+        # Convert numpy types to native Python for JSON serialization
+        self.detections = _convert_numpy(self.detections)
 
 
 @dataclass
