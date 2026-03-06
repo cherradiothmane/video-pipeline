@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
-const API = "http://localhost:8080";
+const API = "http://172.16.0.48:8080";
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 20, color = "currentColor" }) => (
@@ -451,7 +451,7 @@ export default function App() {
   useEffect(() => {
     jobs.forEach((job) => {
       if (job.status === "processing" && !wsRefs.current[job.job_id]) {
-        const ws = new WebSocket(`ws://localhost:8080/ws/${job.job_id}`);
+        const ws = new WebSocket(`ws://172.16.0.48:8080/ws/${job.job_id}`);
         wsRefs.current[job.job_id] = ws;
         ws.onmessage = (e) => {
           const update = JSON.parse(e.data);
