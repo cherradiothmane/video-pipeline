@@ -89,6 +89,7 @@ class OCRExtractor:
         self.min_confidence = min_confidence
         self.backend = backend
         self._reader = None
+        self._reader2 = None  # Secondary reader for Latin languages
 
     def _load_reader(self):
         if self._reader is None:
@@ -98,10 +99,21 @@ class OCRExtractor:
                 except ImportError:
                     raise ImportError("easyocr not installed. Run: pip install easyocr")
 
-                logger.info(
-                    f"Loading EasyOCR for languages={self.languages}, gpu={self.gpu}"
-                )
-                self._reader = easyocr.Reader(self.languages, gpu=self.gpu)
+                has_arabic = "ar" in self.languages
+                other_langs = [l for l in self.languages if l != "ar"]
+
+                if has_arabic and other_langs and other_langs != ["en"]:
+                    # EasyOCR: Arabic only compatible with English.
+                    # Use two readers: ar+en and fr+en
+                    logger.info(f"Loading EasyOCR reader 1 (Arabic): [ar, en], gpu={self.gpu}")
+                    self._reader = easyocr.Reader(["ar", "en"], gpu=self.gpu)
+                    logger.info(f"Loading EasyOCR reader 2 (Latin): {other_langs}, gpu={self.gpu}")
+                    self._reader2 = easyocr.Reader(other_langs, gpu=self.gpu)
+                else:
+                    langs = ["ar", "en"] if has_arabic else self.languages
+                    logger.info(f"Loading EasyOCR for languages={langs}, gpu={self.gpu}")
+                    self._reader = easyocr.Reader(langs, gpu=self.gpu)
+                    self._reader2 = None
                 logger.info("EasyOCR loaded.")
 
             elif self.backend == "paddleocr":
@@ -114,18 +126,22 @@ class OCRExtractor:
                 self._reader = PaddleOCR(use_angle_cls=True, lang=lang, use_gpu=self.gpu)
                 logger.info("PaddleOCR loaded.")
 
-    def _read_frame(self, frame) -> tuple[str, list]:
+    def _read_frame(self, frame):
         """Run OCR on a single frame, return (text, detections)."""
-        import numpy as np
-
         if self.backend == "easyocr":
-            results = self._reader.readtext(frame)
             detections = []
             texts = []
-            for bbox, text, conf in results:
+            for bbox, text, conf in self._reader.readtext(frame):
                 if conf >= self.min_confidence and text.strip():
-                    detections.append({"bbox": bbox, "text": text, "confidence": conf})
+                    detections.append({"bbox": bbox, "text": text, "confidence": float(conf)})
                     texts.append(text.strip())
+            if self._reader2 is not None:
+                seen = set(texts)
+                for bbox, text, conf in self._reader2.readtext(frame):
+                    if conf >= self.min_confidence and text.strip() and text.strip() not in seen:
+                        detections.append({"bbox": bbox, "text": text, "confidence": float(conf)})
+                        texts.append(text.strip())
+                        seen.add(text.strip())
             return " | ".join(texts), detections
 
         elif self.backend == "paddleocr":
