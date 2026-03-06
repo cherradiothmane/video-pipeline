@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
-const API = "http://172.16.0.48:8080";
+const API = `http://${window.location.hostname}:8080`;
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 20, color = "currentColor" }) => (
@@ -248,12 +248,36 @@ function ResultPanel({ job }) {
   );
 }
 
-function SummaryTab({ summary, transcription }) {
+function BilingualBlock({ fr, ar }) {
   return (
-    <div style={{ maxWidth: 700 }}>
-      <h2 style={{ color: "#dde", fontFamily: "'Georgia', serif", fontWeight: 400, fontSize: 22, marginBottom: 4, lineHeight: 1.3 }}>
-        {summary.title}
-      </h2>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ padding: "10px 14px", background: "#09090f", borderRadius: 6, borderLeft: "2px solid #1a4060" }}>
+        <div style={{ color: "#4a9ee8", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.1em", marginBottom: 6, textTransform: "uppercase" }}>FR</div>
+        <p style={{ color: "#aab", lineHeight: 1.7, fontSize: 13, margin: 0 }}>{fr}</p>
+      </div>
+      <div style={{ padding: "10px 14px", background: "#09090f", borderRadius: 6, borderRight: "2px solid #e8a44a", direction: "rtl", textAlign: "right" }}>
+        <div style={{ color: "#e8a44a", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.1em", marginBottom: 6, textTransform: "uppercase" }}>AR</div>
+        <p style={{ color: "#aab", lineHeight: 1.9, fontSize: 13, margin: 0, fontFamily: "serif" }}>{ar}</p>
+      </div>
+    </div>
+  );
+}
+
+function SummaryTab({ summary, transcription }) {
+  const topics = summary.topics || summary.chapters || [];
+  return (
+    <div style={{ maxWidth: 800 }}>
+      {/* Bilingual titles */}
+      <div style={{ marginBottom: 16 }}>
+        <h2 style={{ color: "#dde", fontFamily: "'Georgia', serif", fontWeight: 400, fontSize: 20, marginBottom: 4, lineHeight: 1.3 }}>
+          {summary.title_fr || summary.title}
+        </h2>
+        <h2 style={{ color: "#ccb", fontFamily: "serif", fontWeight: 400, fontSize: 18, lineHeight: 1.4, direction: "rtl", textAlign: "right" }}>
+          {summary.title_ar}
+        </h2>
+      </div>
+
+      {/* Category + keywords */}
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
         <span style={{ background: "#0d1f35", border: "1px solid #1a4060", color: "#4a9ee8", padding: "2px 10px", borderRadius: 20, fontSize: 11, fontFamily: "monospace" }}>
           {summary.category}
@@ -266,24 +290,41 @@ function SummaryTab({ summary, transcription }) {
       </div>
 
       <Section title="Description" icon={icons.file}>
-        <p style={{ color: "#aab", lineHeight: 1.7, fontSize: 14, margin: 0 }}>{summary.description}</p>
+        <BilingualBlock fr={summary.description_fr || summary.description} ar={summary.description_ar} />
       </Section>
 
-      <Section title="Résumé" icon={icons.text}>
-        <p style={{ color: "#aab", lineHeight: 1.7, fontSize: 14, margin: 0 }}>{summary.summary}</p>
+      <Section title="Résumé / ملخص" icon={icons.text}>
+        <BilingualBlock fr={summary.summary_fr || summary.summary} ar={summary.summary_ar} />
       </Section>
 
-      {summary.chapters?.length > 0 && (
-        <Section title={`Chapitres (${summary.chapters.length})`} icon={icons.clock}>
-          {summary.chapters.map((ch, i) => (
-            <div key={i} style={{ marginBottom: 16, paddingLeft: 16, borderLeft: "2px solid #1a3a5a" }}>
-              <div style={{ display: "flex", gap: 10, alignItems: "baseline", marginBottom: 4 }}>
-                <span style={{ color: "#4a9ee8", fontFamily: "monospace", fontSize: 11 }}>
-                  {fmtDuration(ch.start)} → {fmtDuration(ch.end)}
+      {topics.length > 0 && (
+        <Section title={`Sujets traités / المواضيع (${topics.length})`} icon={icons.clock}>
+          {topics.map((t, i) => (
+            <div key={i} style={{ marginBottom: 20, padding: "14px 16px", background: "#09090f", borderRadius: 8, border: "1px solid #1a1a2a" }}>
+              {/* Topic header */}
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+                <span style={{ color: "#4a9ee8", fontFamily: "monospace", fontSize: 11, whiteSpace: "nowrap" }}>
+                  {fmtDuration(t.start)} → {fmtDuration(t.end)}
                 </span>
-                <span style={{ color: "#ccd", fontWeight: 700, fontSize: 13 }}>{ch.title}</span>
+                <span style={{ color: "#dde", fontWeight: 700, fontSize: 13 }}>{t.title_fr || t.title}</span>
+                <span style={{ color: "#ccb", fontSize: 13, marginLeft: "auto", direction: "rtl", fontFamily: "serif" }}>{t.title_ar}</span>
               </div>
-              <p style={{ color: "#889", fontSize: 13, margin: 0, lineHeight: 1.6 }}>{ch.description}</p>
+              {/* Topic bilingual descriptions */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <p style={{ color: "#889", fontSize: 12, margin: 0, lineHeight: 1.6, borderLeft: "2px solid #1a3a5a", paddingLeft: 10 }}>
+                  {t.description_fr || t.description}
+                </p>
+                <p style={{ color: "#889", fontSize: 12, margin: 0, lineHeight: 1.8, borderRight: "2px solid #5a3a1a", paddingRight: 10, direction: "rtl", textAlign: "right", fontFamily: "serif" }}>
+                  {t.description_ar}
+                </p>
+              </div>
+              {t.keywords?.length > 0 && (
+                <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {t.keywords.map((kw) => (
+                    <span key={kw} style={{ background: "#111120", color: "#556677", fontSize: 10, fontFamily: "monospace", padding: "1px 8px", borderRadius: 10, border: "1px solid #1a1a2a" }}>{kw}</span>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </Section>
@@ -451,7 +492,7 @@ export default function App() {
   useEffect(() => {
     jobs.forEach((job) => {
       if (job.status === "processing" && !wsRefs.current[job.job_id]) {
-        const ws = new WebSocket(`ws://172.16.0.48:8080/ws/${job.job_id}`);
+        const ws = new WebSocket(`ws://localhost:8000/ws/${job.job_id}`);
         wsRefs.current[job.job_id] = ws;
         ws.onmessage = (e) => {
           const update = JSON.parse(e.data);

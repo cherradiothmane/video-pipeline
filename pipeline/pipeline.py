@@ -31,7 +31,7 @@ class PipelineConfig:
 
     # OCR settings
     ocr_enabled: bool = True
-    ocr_languages: list = field(default_factory=lambda: ["fr", "en"])
+    ocr_languages: list = field(default_factory=lambda: ["ar", "fr", "en"])
     ocr_fps_sample: float = 1.0  # Frames per second to sample
     ocr_min_confidence: float = 0.5
 
